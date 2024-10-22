@@ -52,6 +52,7 @@ SETTINGS = {
     'placeholder_user': 'User name',
     'password_button_text': 'Decrypt',
     'decryption_failure_message': 'Invalid password.',
+    'decryption_failure_timerange_message': 'This content is not available at this time.',
     'encryption_info_message': 'Contact your administrator for access to this page.'
 }
 
@@ -70,6 +71,7 @@ class encryptContentPlugin(BasePlugin):
         ('placeholder', config_options.Type(string_types, default=str(SETTINGS['placeholder']))),
         ('placeholder_user', config_options.Type(string_types, default=str(SETTINGS['placeholder_user']))),
         ('decryption_failure_message', config_options.Type(string_types, default=str(SETTINGS['decryption_failure_message']))),
+        ('decryption_failure_timerange_message', config_options.Type(string_types, default=str(SETTINGS['decryption_failure_timerange_message']))),
         ('encryption_info_message', config_options.Type(string_types, default=str(SETTINGS['encryption_info_message']))),
         ('password_button_text', config_options.Type(string_types, default=str(SETTINGS['password_button_text']))),
         ('password_button', config_options.Type(bool, default=False)),
@@ -274,7 +276,7 @@ class encryptContentPlugin(BasePlugin):
 
     def __encrypt_content__(self, content, base_path, encryptcontent_path, encryptcontent):
         """ Replaces page or article content with decrypt form. """
-        
+
         # optionally selfhost cryptojs
         js_libraries = []
         if not self.config['webcrypto']:
@@ -325,6 +327,14 @@ class encryptContentPlugin(BasePlugin):
         inject_something = encryptcontent['inject'] if 'inject' in encryptcontent else None
         delete_something = encryptcontent['delete_id'] if 'delete_id' in encryptcontent else None
 
+        encryption_config = {}
+        if 'start_time' in encryptcontent:
+            encryption_config['start_time'] = encryptcontent['start_time']
+        if 'end_time' in encryptcontent:
+            encryption_config['end_time'] = encryptcontent['end_time']
+
+        encryption_config = self.__encrypt_text__(json.dumps(encryption_config), key)
+
         ciphertext_bundle = self.__encrypt_text__(content, key)
 
         decrypt_form = Template(self.setup['html_template']).render({
@@ -334,8 +344,10 @@ class encryptContentPlugin(BasePlugin):
             'placeholder_user': encryptcontent['placeholder_user'],
             'password_button': self.config['password_button'],
             'password_button_text': encryptcontent['password_button_text'],
+            'encryption_config': ';'.join(encryption_config),
             'encryption_info_message': encryptcontent['encryption_info_message'],
             'decryption_failure_message': json.dumps(encryptcontent['decryption_failure_message']),
+            'decryption_failure_timerange_message': json.dumps(encryptcontent['decryption_failure_timerange_message']),
             'form_class': self.config['form_class'],
             'input_class': self.config['input_class'],
             'button_class': self.config['button_class'],
@@ -644,13 +656,13 @@ class encryptContentPlugin(BasePlugin):
                 storage_file = self.setup['config_path'].joinpath(self.config['additional_storage_file'])
                 with open(storage_file, 'r') as stream:
                     self.setup['additional_storage'] = yaml_load(stream)
-                
+
                 #init empty if missing
                 if 'userpass' not in self.setup['additional_storage']:
                     self.setup['additional_storage']['userpass'] = {}
                 if 'password' not in self.setup['additional_storage']:
                     self.setup['additional_storage']['password'] = {}
-                
+
                 for entry in self.setup['keystore'].copy():
                     if entry[0] == KS_PASSWORD:
                         if entry[1] in self.setup['additional_storage']['password']:
@@ -825,6 +837,17 @@ class encryptContentPlugin(BasePlugin):
             encryptcontent['encryption_info_message'] = str(page.meta.get('encryption_info_message'))
             del page.meta['encryption_info_message']
 
+        if 'start_time' in page.meta.keys():
+            encryptcontent['start_time'] = str(page.meta.get('start_time'))
+            del page.meta['start_time']
+            setattr(page, 'start_time', encryptcontent['start_time'])
+
+
+        if 'end_time' in page.meta.keys():
+            encryptcontent['end_time'] = str(page.meta.get('end_time'))
+            del page.meta['end_time']
+            setattr(page, 'end_time', encryptcontent['end_time'])
+
         if encryptcontent.get('password'):
             index = encryptcontent['password']
             if index not in self.setup['password_keys']:
@@ -884,9 +907,9 @@ class encryptContentPlugin(BasePlugin):
                             self.setup['sharelinks'][page.url] = ('', credentials)
                     elif page.encryptcontent.get('obfuscate'):
                         self.setup['sharelinks'][page.url] = ('', page.encryptcontent['obfuscate'])
-                    
 
         return markdown
+
 
     def on_page_content(self, html, page, config, **kwargs):
         """
@@ -980,6 +1003,8 @@ class encryptContentPlugin(BasePlugin):
                         page.encryptcontent['password_button_text'] = translations['password_button_text']
                     if 'decryption_failure_message' in translations and 'decryption_failure_message' not in page.encryptcontent:
                         page.encryptcontent['decryption_failure_message'] = translations['decryption_failure_message']
+                    if 'decryption_failure_timerange_message' in translations and 'decryption_failure_timerange_message' not in page.encryptcontent:
+                        page.encryptcontent['decryption_failure_timerange_message'] = translations['decryption_failure_timerange_message']
                     if 'encryption_info_message' in translations and 'encryption_info_message' not in page.encryptcontent:
                         page.encryptcontent['encryption_info_message'] = translations['encryption_info_message']
 
@@ -996,15 +1021,17 @@ class encryptContentPlugin(BasePlugin):
                 page.encryptcontent['password_button_text'] = self.config['password_button_text']
             if 'decryption_failure_message' not in page.encryptcontent:
                 page.encryptcontent['decryption_failure_message'] = self.config['decryption_failure_message']
+            if 'decryption_failure_timerange_message' not in page.encryptcontent:
+                page.encryptcontent['decryption_failure_timerange_message'] = self.config['decryption_failure_timerange_message']
             if 'encryption_info_message' not in page.encryptcontent:
                 page.encryptcontent['encryption_info_message'] = self.config['encryption_info_message']
 
-            if page.encryptcontent['title_prefix']: 
+            if page.encryptcontent['title_prefix']:
                 page.title = str(self.config['title_prefix']) + str(page.title)
 
             if 'html_to_encrypt' in page.encryptcontent:
                 page.content = self.__encrypt_content__(
-                    page.encryptcontent['html_to_encrypt'], 
+                    page.encryptcontent['html_to_encrypt'],
                     context['base_url']+'/',
                     self.setup['site_path']+page.url,
                     page.encryptcontent
@@ -1013,7 +1040,7 @@ class encryptContentPlugin(BasePlugin):
 
             if 'inject' in page.encryptcontent:
                 page.encryptcontent['decrypt_form'] = self.__encrypt_content__(
-                    '<!-- dummy -->', 
+                    '<!-- dummy -->',
                     context['base_url']+'/',
                     self.setup['site_path']+page.url,
                     page.encryptcontent
@@ -1038,7 +1065,7 @@ class encryptContentPlugin(BasePlugin):
             encrypted_something = {**page.encryptcontent['inject'], **self.config['encrypted_something']}
         else:
             encrypted_something = self.config['encrypted_something']
-        
+
         if (encrypted_something and hasattr(page, 'encryptcontent')
                 and len(encrypted_something) > 0):  # noqa: W503
             soup = BeautifulSoup(output_content, 'html.parser')
@@ -1107,7 +1134,7 @@ class encryptContentPlugin(BasePlugin):
 
         :param config: global configuration object
         """
-        
+
         Path(config.data["site_dir"] + '/assets/javascripts/').mkdir(parents=True, exist_ok=True)
         decrypt_js_path = Path(config.data["site_dir"]).joinpath('assets/javascripts/decrypt-contents.js')
         with open(decrypt_js_path, "w") as file:

@@ -405,6 +405,55 @@ function base64url_decode(input) {
     }
 };
 
+/* Decrypt content of a page */
+{% if webcrypto %}async {% endif %}function decrypt_config_action(username_input, password_input, encrypted_config, key_from_storage=false) {
+    let key=false;
+    let keys_from_keystore=false;
+
+    let user=false;
+    if (username_input) {
+        user = username_input.value;
+    }
+
+    if (key_from_storage !== false) {
+        key = key_from_storage;
+    } else {
+        keys_from_keystore = {% if webcrypto %}await {% endif %}decrypt_key_from_bundle(password_input.value, encryptcontent_keystore, user);
+        if (keys_from_keystore) {
+            key = keys_from_keystore[encryptcontent_id];
+        }
+    }
+
+    let content = false;
+    if (key) {
+        content = {% if webcrypto %}await {% endif %}decrypt_content_from_bundle(key, encrypted_config.innerHTML);
+    }
+    if (content !== false) {
+      config = JSON.parse(content);
+      let start_time = null;
+      if (config.start_time) {
+        start_time = new Date(config.start_time);
+      }
+      let end_time = null;
+      if (config.end_time) {
+        end_time = new Date(config.end_time);
+      }
+      let now = new Date();
+
+      if (start_time && end_time) {
+        return (start_time <= now && now <= end_time);
+      } else if (start_time) {
+        return (start_time <= now);
+      } else if (end_time) {
+        return (now <= end_time);
+      } else {
+        return true
+      }
+    } else {
+        return true
+    }
+};
+
 {% if webcrypto %}async {% endif %}function decryptor_reaction(key_or_keys, password_input, decrypted_content, fallback_used=false) {
     if (key_or_keys) {
         let key;
@@ -484,6 +533,7 @@ function base64url_decode(input) {
     //if (password_input.hasAttribute('placeholder')) {
     //    password_input.setAttribute('size', password_input.getAttribute('placeholder').length);
     //}
+    let encrypted_config = document.getElementById('mkdocs-encrypted-config');
     let encrypted_content = document.getElementById('mkdocs-encrypted-content');
     let decrypted_content = document.getElementById('mkdocs-decrypted-content');
     let content_decrypted;
@@ -602,10 +652,21 @@ function base64url_decode(input) {
                 password_input.value = password_input_sharelink.value + password_input.value;
             }
     {%- endif %}
-            content_decrypted = {% if webcrypto %}await {% endif %}decrypt_action(
-                username_input, password_input, encrypted_content, decrypted_content
+            inside_time_range = {% if webcrypto %}await {% endif %}decrypt_config_action(
+                username_input, password_input, encrypted_config
             );
-            decryptor_reaction(content_decrypted, password_input, decrypted_content);
+
+            if (inside_time_range) {
+              key = {% if webcrypto %}await {% endif %}decrypt_action(
+                  username_input, password_input, encrypted_content, decrypted_content
+              );
+              decryptor_reaction(key, password_input, decrypted_content);
+            } else {
+                let mkdocs_decrypt_msg = document.getElementById('mkdocs-decrypt-msg');
+                mkdocs_decrypt_msg.textContent = decryption_failure_timerange_message;
+                password_input.value = '';
+                password_input.focus();
+            }
         }
     });
 }

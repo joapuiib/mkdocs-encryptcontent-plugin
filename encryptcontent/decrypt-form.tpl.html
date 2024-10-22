@@ -1,3 +1,4 @@
+<div id="mkdocs-encrypted-config" style="display:none">{{ encryption_config }}</div>
 <div id="mkdocs-encrypted-content" style="display:none">{{ ciphertext_bundle }}</div>
 <div id="mkdocs-decrypted-content">
     <form id="mkdocs-decrypt-form"{% if form_class %} class="{{ form_class }}"{% endif %}>
@@ -20,6 +21,7 @@
 var encryptcontent_id = "{{ encryptcontent_id }}";
 var encryptcontent_path = "{{ encryptcontent_path }}";
 var decryption_failure_message = {{ decryption_failure_message }};
+var decryption_failure_timerange_message = {{ decryption_failure_timerange_message }};
 var encryptcontent_keystore = {{ encryptcontent_keystore }};
 var encryptcontent_obfuscate = {{ obfuscate }};
 {% if inject_something %}var inject_something = {{ inject_something }};{% endif -%}
