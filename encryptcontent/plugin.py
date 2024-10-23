@@ -53,7 +53,8 @@ SETTINGS = {
     'password_button_text': 'Decrypt',
     'decryption_failure_message': 'Invalid password.',
     'decryption_failure_timerange_message': 'This content is not available at this time.',
-    'encryption_info_message': 'Contact your administrator for access to this page.'
+    'encryption_info_message': 'Contact your administrator for access to this page.',
+    'serve_content_info_message': 'This content is visible only while serving the site'
 }
 
 logger = logging.getLogger("mkdocs.plugins.encryptcontent")
@@ -73,6 +74,7 @@ class encryptContentPlugin(BasePlugin):
         ('decryption_failure_message', config_options.Type(string_types, default=str(SETTINGS['decryption_failure_message']))),
         ('decryption_failure_timerange_message', config_options.Type(string_types, default=str(SETTINGS['decryption_failure_timerange_message']))),
         ('encryption_info_message', config_options.Type(string_types, default=str(SETTINGS['encryption_info_message']))),
+        ('serve_content_info_message', config_options.Type(string_types, default=str(SETTINGS['serve_content_info_message']))),
         ('password_button_text', config_options.Type(string_types, default=str(SETTINGS['password_button_text']))),
         ('password_button', config_options.Type(bool, default=False)),
         ('form_class', config_options.Type(string_types, default=None)),
@@ -119,6 +121,7 @@ class encryptContentPlugin(BasePlugin):
         ('webcrypto', config_options.Type(bool, default=False)),
         ('esm', config_options.Type(bool, default=False)),
         ('insecure_test', config_options.Type(bool, default=False)), # insecure test build
+        ('show_content_on_serve', config_options.Type(bool, default=False)), # Show unencrypted text on protected pages when serving
         # legacy features
     )
 
@@ -337,6 +340,8 @@ class encryptContentPlugin(BasePlugin):
 
         ciphertext_bundle = self.__encrypt_text__(content, key)
 
+        render_serve_content = self.config['show_content_on_serve'] and self.setup['is_serving']
+
         decrypt_form = Template(self.setup['html_template']).render({
             # custom message and template rendering
             'summary': encryptcontent['summary'],
@@ -346,6 +351,7 @@ class encryptContentPlugin(BasePlugin):
             'password_button_text': encryptcontent['password_button_text'],
             'encryption_config': ';'.join(encryption_config),
             'encryption_info_message': encryptcontent['encryption_info_message'],
+            'serve_content_info_message': encryptcontent['serve_content_info_message'],
             'decryption_failure_message': json.dumps(encryptcontent['decryption_failure_message']),
             'decryption_failure_timerange_message': json.dumps(encryptcontent['decryption_failure_timerange_message']),
             'form_class': self.config['form_class'],
@@ -365,7 +371,9 @@ class encryptContentPlugin(BasePlugin):
             'webcrypto' : self.config['webcrypto'],
             'esm' : self.config['esm'],
             # add extra vars
-            'extra': self.config['html_extra_vars']
+            'extra': self.config['html_extra_vars'],
+            'render_serve_content': render_serve_content,
+            'content': content if render_serve_content else ''
         })
         return decrypt_form
 
@@ -440,6 +448,9 @@ class encryptContentPlugin(BasePlugin):
         return enttropy_spied_on, enttropy_secret
 
     # MKDOCS Events builds
+    def on_startup(self, *, command, dirty):
+        self.setup['is_serving'] = command == 'serve'
+
 
     def on_config(self, config, **kwargs):
         """
@@ -837,6 +848,10 @@ class encryptContentPlugin(BasePlugin):
             encryptcontent['encryption_info_message'] = str(page.meta.get('encryption_info_message'))
             del page.meta['encryption_info_message']
 
+        if 'serve_content_info_message' in page.meta.keys():
+            encryptcontent['serve_content_info_message'] = str(page.meta.get('serve_content_info_message'))
+            del page.meta['serve_content_info_message']
+
         if 'start_time' in page.meta.keys():
             encryptcontent['start_time'] = str(page.meta.get('start_time'))
             del page.meta['start_time']
@@ -1007,6 +1022,8 @@ class encryptContentPlugin(BasePlugin):
                         page.encryptcontent['decryption_failure_timerange_message'] = translations['decryption_failure_timerange_message']
                     if 'encryption_info_message' in translations and 'encryption_info_message' not in page.encryptcontent:
                         page.encryptcontent['encryption_info_message'] = translations['encryption_info_message']
+                    if 'serve_content_info_message' in translations and 'serve_content_info_message' not in page.encryptcontent:
+                        page.encryptcontent['serve_content_info_message'] = translations['serve_content_info_message']
 
             #init default strings from config
             if 'title_prefix' not in page.encryptcontent:
@@ -1025,6 +1042,8 @@ class encryptContentPlugin(BasePlugin):
                 page.encryptcontent['decryption_failure_timerange_message'] = self.config['decryption_failure_timerange_message']
             if 'encryption_info_message' not in page.encryptcontent:
                 page.encryptcontent['encryption_info_message'] = self.config['encryption_info_message']
+            if 'serve_content_info_message' not in page.encryptcontent:
+                page.encryptcontent['serve_content_info_message'] = self.config['serve_content_info_message']
 
             if page.encryptcontent['title_prefix']:
                 page.title = str(self.config['title_prefix']) + str(page.title)

@@ -16,6 +16,11 @@
         <p id="mkdocs-decrypt-msg"></p>
     </form>
 </div>
+{% if render_serve_content %}
+<hr>
+<h1>{{ serve_content_info_message }}</h1>
+<div>{{ content }}</div>
+{% endif %}
 
 <script type="text/javascript">
 var encryptcontent_id = "{{ encryptcontent_id }}";
