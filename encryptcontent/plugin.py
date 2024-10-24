@@ -1085,6 +1085,8 @@ class encryptContentPlugin(BasePlugin):
         else:
             encrypted_something = self.config['encrypted_something']
 
+        render_serve_content = self.config['show_content_on_serve'] and self.setup['is_serving']
+
         if (encrypted_something and hasattr(page, 'encryptcontent')
                 and len(encrypted_something) > 0):  # noqa: W503
             soup = BeautifulSoup(output_content, 'html.parser')
@@ -1098,6 +1100,7 @@ class encryptContentPlugin(BasePlugin):
                         item.contents = [
                             content for content in item.contents if content not in ['\n', ' ']
                         ]
+
                         # Merge the content in case there are several elements
                         if len(item.contents) > 1:
                             merge_item = ''.join([str(s) for s in item.contents])
@@ -1105,11 +1108,22 @@ class encryptContentPlugin(BasePlugin):
                             merge_item = item.contents[0]
                         else:
                             merge_item = ""
+
                         # Encrypt child items on target tags with page password
                         cipher_bundle = self.__encrypt_text__(merge_item, page.encryptcontent['key'])
                         encrypted_content = ';'.join(cipher_bundle)
                         # Replace initial content with encrypted one
+
+
+                        if render_serve_content:
+                            copied_item = soup.new_tag(tag[0], **{tag[1]: name})
+                            copied_item = item.__copy__()
+
                         item.string = encrypted_content
+
+                        if render_serve_content:
+                            item.insert_after(copied_item)
+
                         if item.has_attr('style'):
                             if isinstance(item['style'], list):
                                 item['style'].append("display:none")
