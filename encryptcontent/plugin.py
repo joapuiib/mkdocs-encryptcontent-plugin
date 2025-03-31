@@ -922,7 +922,6 @@ class encryptContentPlugin(BasePlugin):
                             self.setup['sharelinks'][page.url] = ('', credentials)
                     elif page.encryptcontent.get('obfuscate'):
                         self.setup['sharelinks'][page.url] = ('', page.encryptcontent['obfuscate'])
-
         return markdown
 
 
@@ -1092,7 +1091,7 @@ class encryptContentPlugin(BasePlugin):
             soup = BeautifulSoup(output_content, 'html.parser')
             for name, tag in encrypted_something.items():
                 # logger.debug({'name': name, 'html tag': tag[0], 'type': tag[1]})
-                something_search = soup.findAll(tag[0], {tag[1]: name})
+                something_search = soup.find_all(tag[0], {tag[1]: name})
                 if something_search is not None and len(something_search) > 0:
                     # Loop for multi child tags on target element
                     for item in something_search:
