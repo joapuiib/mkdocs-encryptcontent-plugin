@@ -43,10 +43,13 @@ In order to use environment variables in user names or passwords, use the
 [special yaml tag](https://www.mkdocs.org/user-guide/configuration/#special-yaml-tags) `!ENV`.
 
 ## Todos for 3.1.x
+* find a better way for search decryption
+
+
+## Todos for 3.2.x
 * outsource some functionality to separate plugins, like:
     * Filename obfuscation
     * Signing of generated files
-* find a better way for search decryption
 * add better alternative to PBKDF2
 * optional server side keystore (allows throtteling)
     * still no waterproof solution...
@@ -106,7 +109,7 @@ Install the package from source with pip:
 ```bash
 cd mkdocs-encryptcontent-plugin/
 python setup.py sdist bdist_wheel
-pip install --force-reinstall --no-deps dist/mkdocs_encryptcontent_plugin-3.0.4-py3-none-any.whl
+pip install --force-reinstall --no-deps dist/mkdocs_encryptcontent_plugin-3.1.0-py3-none-any.whl
 ```
 
 Enable the plugin in your `mkdocs.yml`:
@@ -772,7 +775,7 @@ In order to be able to decrypt the search index (`dynamically`) `mkdocs-material
 
 Patches for different versions can be found [here](https://github.com/unverbuggt/mkdocs-encryptcontent-plugin/tree/version3/patches).
 
-#### Material 8.x
+#### Material 9.7
 
 You'll need some [prerequisites](https://squidfunk.github.io/mkdocs-material/customization/#environment-setup)
 and also execute these commands:
@@ -780,28 +783,24 @@ and also execute these commands:
 ```bash
 git clone https://github.com/squidfunk/mkdocs-material
 cd mkdocs-material
+
+python -m venv venv
+source venv/bin/activate
+pip install -e ".[git, recommended, imaging]"
 pip install mkdocs-minify-plugin
-pip install mkdocs-redirects
+pip install nodeenv
+
+nodeenv -p -n lts
 npm install
 
-#copy material_search_worker.patch to mkdocs-material
-patch -p 0 < material_search_worker8.patch
+#copy material_bundle9_7.patch to mkdocs-material
+patch -p 0 < material_bundle9_7.patch
+
+npm run build
 
 pip install --force-reinstall .
 #pip install --force-reinstall --no-deps . #faster if mkdocs-material was already installed
 ```
-
-#### Material 9.x
-
-Follow the instructions for [Theme development](https://squidfunk.github.io/mkdocs-material/customization/#theme-development) carefully.
-
-Apply the patch before [Building the theme](https://squidfunk.github.io/mkdocs-material/customization/#building-the-theme):
-
-```bash
-patch -p 0 < material_browser_request9.patch # until Material 9.3
-patch -p 0 < material_browser_request9_4p.patch # Material 9.4+
-```
-
 
 ## Javascript extensions
 
@@ -963,16 +962,24 @@ plugins:
 
 ### Crypto-js or crypto-es or webcrypto?
 
-By default the plugin uses the crypto-js library for page decryption, but using
-the browser's built-in webcrypto engine is also possible (set `webcrypto: true`).
+By default the plugin uses the browser's built-in webcrypto engine for page decryption, but using
+the crypto-js library is also possible (set `webcrypto: false`).
 
 The main advantage of webcrypto over crypto-js is that it is much faster, allowing higher
-calculation difficulty for key derivation (`kdf_pow`). Also it may be easier to implement
+calculation difficulty for key derivation (`kdf_pow`). Also it may be easier to use
 key derivation functions other than PBKDF2 with webcrypto in the future.
 
 On the other hand crypto-js is implemented in pure Javascript without any dependencies and well
-tested (but it probably won't receive any updates as development stalled in 2021, see [here](https://github.com/brix/crypto-js/#discontinued))
+tested (but it probably won't receive any updates as development stalled in 2023, see [here](https://github.com/brix/crypto-js/#discontinued))
 and we know nothing about how good or bad webcrypto is implemented in different browsers.
+
+There is one problem with the browsers webcrypto engine though:  
+It is disabled in a non-secure context, meaning it is only available if the connection to the web server
+is made through a TLS connection (https) or if served through localhost (127.0.0.1).
+But this plugin handles the decryption purely on the client side, so a non-secure connection
+to the server is only a security risk in terms of that the traffic could be manipulated to inject malware.
+But this also is possible if someone evil has access to the webspace and manipulates the files there.
+In both cases it is only possible to detect modifications by [checking signatures](#signing-of-generated-files).
 
 There is a new variation of [crypto-js](https://github.com/brix/crypto-js), called [crypto-es](https://github.com/entronad/crypto-es).
 It provides the same functions, but is implemented in modern javascript and can be activated by setting `esm: true`.  
@@ -982,6 +989,7 @@ javascript module (speeding up material theme with instant loading feature).
 > Crypto-js causes a bug when browsing through encrypted pages,
 > if used in `mkdocs-material` together with the `navigation.instant` feature.
 > It is advised to use `webcrypto: true` or crypto-es with `esm: true` in this case.
+
 
 #### Self-host Crypto-js or Crypto-es
 
