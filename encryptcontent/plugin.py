@@ -54,7 +54,8 @@ SETTINGS = {
     'decryption_failure_message': 'Invalid password.',
     'decryption_failure_timerange_message': 'This content is not available at this time.',
     'encryption_info_message': 'Contact your administrator for access to this page.',
-    'serve_content_info_message': 'This content is visible only while serving the site'
+    'serve_content_info_message': 'This content is visible only while serving the site',
+    'show_password_text': 'Show password',
 }
 
 logger = logging.getLogger("mkdocs.plugins.encryptcontent")
@@ -80,6 +81,7 @@ class encryptContentPlugin(BasePlugin):
         ('form_class', config_options.Type(string_types, default=None)),
         ('input_class', config_options.Type(string_types, default=None)),
         ('button_class', config_options.Type(string_types, default=None)),
+        ('show_password_text', config_options.Type(string_types, default=str(SETTINGS['show_password_text']))),
         # password feature
         ('global_password', config_options.Type(string_types, default=None)),
         ('remember_keys', config_options.Type(bool, default=True)),
@@ -357,6 +359,7 @@ class encryptContentPlugin(BasePlugin):
             'serve_content_info_message': encryptcontent['serve_content_info_message'],
             'decryption_failure_message': json.dumps(encryptcontent['decryption_failure_message']),
             'decryption_failure_timerange_message': json.dumps(encryptcontent['decryption_failure_timerange_message']),
+            'show_password_text': encryptcontent['show_password_text'],
             'form_class': self.config['form_class'],
             'input_class': self.config['input_class'],
             'button_class': self.config['button_class'],
@@ -1031,6 +1034,8 @@ class encryptContentPlugin(BasePlugin):
                         page.encryptcontent['encryption_info_message'] = translations['encryption_info_message']
                     if 'serve_content_info_message' in translations and 'serve_content_info_message' not in page.encryptcontent:
                         page.encryptcontent['serve_content_info_message'] = translations['serve_content_info_message']
+                    if 'show_password_text' in translations and 'show_password_text' not in page.encryptcontent:
+                        page.encryptcontent['show_password_text'] = translations['show_password_text']
 
             #init default strings from config
             if 'title_prefix' not in page.encryptcontent:
@@ -1051,6 +1056,8 @@ class encryptContentPlugin(BasePlugin):
                 page.encryptcontent['encryption_info_message'] = self.config['encryption_info_message']
             if 'serve_content_info_message' not in page.encryptcontent:
                 page.encryptcontent['serve_content_info_message'] = self.config['serve_content_info_message']
+            if 'show_password_text' not in page.encryptcontent:
+                page.encryptcontent['show_password_text'] = self.config['show_password_text']
 
             if page.encryptcontent['title_prefix']:
                 page.title = str(self.config['title_prefix']) + str(page.title)
