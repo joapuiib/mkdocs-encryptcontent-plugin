@@ -429,7 +429,7 @@ function base64url_decode(input) {
         content = {% if webcrypto %}await {% endif %}decrypt_content_from_bundle(key, encrypted_config.innerHTML);
     }
     if (content !== false) {
-      config = JSON.parse(content);
+      const config = JSON.parse(content);
       let start_time = null;
       if (config.start_time) {
         start_time = new Date(config.start_time);
@@ -652,7 +652,7 @@ function base64url_decode(input) {
                 password_input.value = password_input_sharelink.value + password_input.value;
             }
     {%- endif %}
-            inside_time_range = {% if webcrypto %}await {% endif %}decrypt_config_action(
+            const inside_time_range = {% if webcrypto %}await {% endif %}decrypt_config_action(
                 username_input, password_input, encrypted_config
             );
 
